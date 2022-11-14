@@ -1,13 +1,25 @@
-import { FormControl, FormLabel, Heading, Input, Radio, RadioGroup, Stack } from "@chakra-ui/react";
-import { useContext } from "react";
+import { FormControl, FormLabel, Heading, Input, Radio, RadioGroup, Select, Skeleton, Stack } from "@chakra-ui/react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { DataContext } from "../App";
 import { Wrapper } from "./Wrapper";
 import { format } from "date-fns";
 import { PeselInput } from "./PeselInput";
 import { UsageIntent } from "../models/UsageIntent";
+import { DataApi } from "../Api/DataApi";
+import { CustomVehicleUsage } from "../models/CustomVehicleUsage";
+
+interface RequestStatus<T> {
+    isLoaded: boolean;
+    data: T;
+}
 
 export const DetailsPage = () => {
     const context = useContext(DataContext);
+
+    const [requestVehicleUsage, setRequestVehicleUsage] = useState<RequestStatus<CustomVehicleUsage[]>>({
+        isLoaded: false,
+        data: [],
+    });
 
     const onInsuranceStartDateChanged = (event: React.ChangeEvent<HTMLInputElement>) => {
         context.extendedDataModifier({
@@ -15,6 +27,26 @@ export const DetailsPage = () => {
             insuranceStartDate: event.currentTarget.valueAsDate || context.extendedData.insuranceStartDate,
         });
     };
+
+    const fetchVehicleUsage = useCallback(async () => {
+        try {
+
+            setRequestVehicleUsage({ data: [], isLoaded: false });
+
+            const usages = await DataApi.getVehicleUsage()
+
+            await new Promise(resolve => setTimeout(resolve, 5000))
+
+            setRequestVehicleUsage({ data: usages.data, isLoaded: true });
+        } catch (error) {
+            setRequestVehicleUsage({ data: [], isLoaded: false });
+            console.error(error)
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchVehicleUsage();
+    }, []);
 
     const onNameChanged = (event: React.ChangeEvent<HTMLInputElement>) => {
         context.basicDataModifier({
@@ -79,6 +111,15 @@ export const DetailsPage = () => {
                         </Radio>
                     </Stack>
                 </RadioGroup>
+            </FormControl>
+            <FormControl>
+                <FormLabel>Sposob niestandardowego uzytkowania</FormLabel>
+                <Skeleton isLoaded={!requestVehicleUsage.isLoaded}>
+                    <Select placeholder='Wybierz sposób'>
+                        {requestVehicleUsage.data.map(vehicleUsage => <option value={vehicleUsage.name}>{vehicleUsage.name}</option>)}
+                    </Select>
+                </Skeleton>
+
             </FormControl>
         </Wrapper>
     );
